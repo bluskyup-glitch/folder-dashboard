@@ -1,0 +1,44 @@
+{
+  "name": "folder-dashboard",
+  "version": "1.0.0",
+  "description": "A macOS folder navigation dashboard built with Electron + React",
+  "main": "dist-electron/main.js",
+  "scripts": {
+    "dev": "concurrently -k \"npm run dev:vite\" \"npm run dev:electron\"",
+    "dev:vite": "vite",
+    "dev:electron": "wait-on http://localhost:5173 && tsc -p tsconfig.electron.json && electron .",
+    "build": "vite build && tsc -p tsconfig.electron.json",
+    "dist": "npm run build && electron-builder",
+    "preview": "vite preview"
+  },
+  "keywords": ["electron", "react", "folder", "dashboard"],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.1",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.4",
+    "concurrently": "^9.1.2",
+    "electron": "^33.3.1",
+    "electron-builder": "^25.1.8",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.5",
+    "vite-plugin-electron": "^0.29.0",
+    "wait-on": "^8.0.1"
+  },
+  "build": {
+    "appId": "com.folder-dashboard.app",
+    "productName": "Folder Dashboard",
+    "mac": {
+      "category": "public.app-category.productivity",
+      "target": "dmg"
+    },
+    "directories": {
+      "output": "release"
+    }
+  }
+}
