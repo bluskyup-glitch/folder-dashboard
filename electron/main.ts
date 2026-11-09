@@ -212,6 +212,62 @@ ipcMain.handle('dialog:openFolder', async () => {
   return result.filePaths[0]
 })
 
+// ─── IPC: Volumes ─────────────────────────────────────────────────────────────
+
+interface VolumeInfo {
+  name: string
+  path: string
+  isRemovable: boolean
+  isNetwork: boolean
+}
+
+ipcMain.handle('fs:listVolumes', async () => {
+  const volumes: VolumeInfo[] = []
+
+  if (process.platform === 'darwin') {
+    // Always include the root / Macintosh HD
+    try {
+      const rootStat = fs.statSync('/')
+      volumes.push({ name: 'Macintosh HD', path: '/', isRemovable: false, isNetwork: false })
+    } catch {}
+
+    // Read /Volumes for mounted drives
+    try {
+      const entries = fs.readdirSync('/Volumes', { withFileTypes: true })
+      for (const entry of entries) {
+        const volPath = `/Volumes/${entry.name}`
+        try {
+          // Skip if it points back to /  (the symlink "Macintosh HD" -> /)
+          const real = fs.realpathSync(volPath)
+          if (real === '/') continue
+          volumes.push({
+            name: entry.name,
+            path: volPath,
+            isRemovable: true,
+            isNetwork: false,
+          })
+        } catch {}
+      }
+    } catch {}
+  } else if (process.platform === 'linux') {
+    // Fallback: just return home and root
+    volumes.push({ name: 'Root', path: '/', isRemovable: false, isNetwork: false })
+    volumes.push({ name: 'Home', path: os.homedir(), isRemovable: false, isNetwork: false })
+  } else {
+    // Windows: list drive letters
+    const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')
+    for (const l of letters) {
+      const p = `${l}:\\`
+      try {
+        fs.accessSync(p)
+        volumes.push({ name: `Drive ${l}:`, path: p, isRemovable: l !== 'C', isNetwork: false })
+      } catch {}
+    }
+  }
+
+  return volumes
+})
+
 // ─── IPC: Config / Favorites ─────────────────────────────────────────────────
 
 const configPath = path.join(app.getPath('userData'), 'config.json')

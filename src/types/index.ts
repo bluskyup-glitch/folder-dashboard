@@ -16,6 +16,7 @@ export interface BreadcrumbPart {
 export interface FolderPanel {
   id: string
   currentPath: string
+  rootPath: string | null  // persisted starting folder for this panel slot
   history: string[]
   historyIndex: number
   entries: FileEntry[]
@@ -42,6 +43,13 @@ export interface DragPayload {
 
 export type ViewMode = 'grid' | 'list'
 
+export interface VolumeInfo {
+  name: string
+  path: string
+  isRemovable: boolean
+  isNetwork: boolean
+}
+
 declare global {
   interface Window {
     electronAPI: {
@@ -62,6 +70,7 @@ declare global {
       deleteFile: (filePath: string) => Promise<{ success: boolean; error?: string }>
       showInFinder: (filePath: string) => Promise<{ success: boolean }>
       openFolderDialog: () => Promise<string | null>
+      listVolumes: () => Promise<VolumeInfo[]>
       configGet: (key: string) => Promise<unknown>
       configSet: (key: string, value: unknown) => Promise<boolean>
     }

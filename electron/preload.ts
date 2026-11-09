@@ -19,6 +19,9 @@ const api = {
   // Dialogs
   openFolderDialog: () => ipcRenderer.invoke('dialog:openFolder'),
 
+  // Volumes
+  listVolumes: () => ipcRenderer.invoke('fs:listVolumes'),
+
   // Config / favorites
   configGet: (key: string) => ipcRenderer.invoke('config:get', key),
   configSet: (key: string, value: unknown) => ipcRenderer.invoke('config:set', key, value),

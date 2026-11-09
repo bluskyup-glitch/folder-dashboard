@@ -14,7 +14,7 @@ interface AppState {
 
 type Action =
   | { type: 'SET_HOME_DIR'; homeDir: string }
-  | { type: 'ADD_PANEL'; path?: string }
+  | { type: 'ADD_PANEL'; path?: string; rootPath?: string | null }
   | { type: 'REMOVE_PANEL'; panelId: string }
   | { type: 'SET_ACTIVE_PANEL'; panelId: string }
   | { type: 'NAVIGATE'; panelId: string; path: string }
@@ -33,11 +33,13 @@ type Action =
   | { type: 'SET_CLIPBOARD'; clipboard: ClipboardItem | null }
   | { type: 'SET_SCROLL'; panelId: string; scrollTop: number }
   | { type: 'REFRESH_PANEL'; panelId: string }
+  | { type: 'SET_PANEL_ROOT'; panelId: string; rootPath: string }
 
-function makePanel(currentPath: string): FolderPanel {
+function makePanel(currentPath: string, rootPath: string | null = null): FolderPanel {
   return {
     id: generateId(),
     currentPath,
+    rootPath,
     history: [currentPath],
     historyIndex: 0,
     entries: [],
@@ -55,7 +57,7 @@ function reducer(state: AppState, action: Action): AppState {
 
     case 'ADD_PANEL': {
       const path = action.path || state.homeDir || '/'
-      const panel = makePanel(path)
+      const panel = makePanel(path, action.rootPath ?? null)
       const panels = [...state.panels, panel]
       return { ...state, panels, activePanelId: panel.id }
     }
@@ -200,6 +202,13 @@ function reducer(state: AppState, action: Action): AppState {
       return { ...state, panels }
     }
 
+    case 'SET_PANEL_ROOT': {
+      const panels = state.panels.map(p =>
+        p.id === action.panelId ? { ...p, rootPath: action.rootPath } : p
+      )
+      return { ...state, panels }
+    }
+
     default:
       return state
   }
@@ -281,14 +290,28 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         await window.electronAPI.configSet('favorites', defaultFavs)
       }
 
-      // Load saved panel paths
-      const savedPaths = await window.electronAPI.configGet('panelPaths') as string[] | null
-      const paths = (savedPaths && Array.isArray(savedPaths) && savedPaths.length > 0)
-        ? savedPaths.slice(0, 4)
-        : [homeDir, `${homeDir}/Documents`]
+      // Load saved panel state (current path + pinned root path)
+      const savedPanels = await window.electronAPI.configGet('panelState') as
+        Array<{ currentPath: string; rootPath: string | null }> | null
 
-      for (const p of paths) {
-        dispatch({ type: 'ADD_PANEL', path: p })
+      // Legacy fallback: plain array of path strings
+      const legacyPaths = await window.electronAPI.configGet('panelPaths') as string[] | null
+
+      let panelConfigs: Array<{ currentPath: string; rootPath: string | null }>
+
+      if (savedPanels && Array.isArray(savedPanels) && savedPanels.length > 0) {
+        panelConfigs = savedPanels.slice(0, 4)
+      } else if (legacyPaths && Array.isArray(legacyPaths) && legacyPaths.length > 0) {
+        panelConfigs = legacyPaths.slice(0, 4).map(p => ({ currentPath: p, rootPath: null }))
+      } else {
+        panelConfigs = [
+          { currentPath: homeDir, rootPath: homeDir },
+          { currentPath: `${homeDir}/Documents`, rootPath: `${homeDir}/Documents` },
+        ]
+      }
+
+      for (const cfg of panelConfigs) {
+        dispatch({ type: 'ADD_PANEL', path: cfg.currentPath, rootPath: cfg.rootPath })
       }
     }
     init()
@@ -303,12 +326,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }, [state.panels, loadPanel])
 
-  // Save panel paths when they change
+  // Save panel state (current path + pinned root) when they change
   useEffect(() => {
     if (state.panels.length === 0) return
-    const paths = state.panels.map(p => p.currentPath)
-    window.electronAPI.configSet('panelPaths', paths)
-  }, [state.panels.map(p => p.currentPath).join('|')])
+    const panelState = state.panels.map(p => ({
+      currentPath: p.currentPath,
+      rootPath: p.rootPath,
+    }))
+    window.electronAPI.configSet('panelState', panelState)
+  }, [state.panels.map(p => `${p.currentPath}|${p.rootPath ?? ''}`).join(':')])
 
   return (
     <AppContext.Provider value={{ state, dispatch, loadPanel, refreshPanel, saveFavorites }}>

@@ -4,6 +4,7 @@ import type { FolderPanel as FolderPanelType, FileEntry, DragPayload } from '../
 import { FileIconSvg } from './FileIcon'
 import { Breadcrumb } from './Breadcrumb'
 import { ContextMenu, type ContextMenuItem } from './ContextMenu'
+import { VolumePicker } from './VolumePicker'
 import { formatFileSize, formatDate, getFileCategory } from '../utils/fileUtils'
 
 interface Props {
@@ -402,22 +403,31 @@ export function FolderPanel({ panel, onClose, canClose }: Props) {
           <Breadcrumb currentPath={panel.currentPath} onNavigate={navigate} />
         </div>
 
-        {/* Open folder dialog */}
+        {/* Volume picker */}
+        <div onClick={e => e.stopPropagation()}>
+          <VolumePicker currentPath={panel.currentPath} onNavigate={navigate} />
+        </div>
+
+        {/* Set root folder for this panel */}
         <button
           onClick={async e => {
             e.stopPropagation()
             const p = await window.electronAPI.openFolderDialog()
-            if (p) navigate(p)
+            if (p) {
+              navigate(p)
+              dispatch({ type: 'SET_PANEL_ROOT', panelId: panel.id, rootPath: p })
+            }
           }}
-          title="Choose folder"
+          title="Set root folder for this panel (persists on restart)"
           style={{
-            width: 26, height: 26, borderRadius: 5, fontSize: 13, color: '#8888aa',
+            width: 26, height: 26, borderRadius: 5, fontSize: 13,
+            color: panel.rootPath ? '#f0b429' : '#8888aa',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            transition: 'background 0.1s',
+            transition: 'background 0.1s, color 0.1s',
           }}
           onMouseEnter={e => ((e.currentTarget as HTMLElement).style.background = '#252540')}
           onMouseLeave={e => ((e.currentTarget as HTMLElement).style.background = 'none')}
-        >⊞</button>
+        >📌</button>
 
         {/* Close panel */}
         {canClose && (
